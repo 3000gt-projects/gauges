@@ -1,45 +1,75 @@
 #include <Adafruit_GFX.h>
+#include <cstdint>
 
-struct Gauge {
+#include "colors.h"
+
+struct GaugeTheme {
+  uint16_t okColor = OLED_Color_Warm;
+  uint16_t lowColor = OLED_Color_Blue;
+  uint16_t highColor = OLED_Color_Red;
+};
+
+struct GaugeConfig {
   const char *name = "undefined";
   const char *units = "undefined";
   float min = 0;
   float max = 100;
-  float current = 0;
 };
 
-void drawGauge(GFXcanvas16 &canvas, const struct Gauge &gauge, int16_t x0,
-               int16_t y0, int16_t maxW, uint16_t color) {
-  const int16_t tallNotchH = 6;
-  const int16_t smallNotchH = 4;
-  const int16_t textH = 10;
+struct GaugeData {
+  float currentValue;
+};
 
-  const int16_t maxH = tallNotchH + textH;
+struct GaugeVerticalLayout {
+  int16_t xPos = 0;
+  int16_t yPos = 0;
+  int16_t margin = 0;
+  int16_t maxWidth = 0;
+};
 
-  canvas.setTextColor(color);
+void resetLayout(struct GaugeVerticalLayout &layout, int16_t yPos) {
+  layout.yPos = yPos;
+}
+
+void drawGauge(GFXcanvas16 &canvas, const struct GaugeConfig &config,
+               struct GaugeVerticalLayout &layout,
+               const struct GaugeTheme &theme, const struct GaugeData &data) {
+  const int16_t tallNotchH = 8;
+  const int16_t smallNotchH = 6;
+  const int16_t textH = 6;
+  const int16_t textBottomMargin = 2;
+  const int16_t lineH = 2;
+
+  const int16_t maxH = tallNotchH + textH + textBottomMargin;
+
+  canvas.setTextColor(theme.okColor);
   canvas.setTextSize(1);
-  canvas.setCursor(x0, y0);
-  canvas.print(gauge.name);
+  canvas.setCursor(layout.xPos, layout.yPos);
+  canvas.print(config.name);
   canvas.print(' ');
-  canvas.print(gauge.current);
+  canvas.print(data.currentValue);
   canvas.print(' ');
-  canvas.print(gauge.units);
+  canvas.print(config.units);
 
-  int16_t w = (maxW / 10) * 10;
-  y0 += maxH;
+  int16_t w = (layout.maxWidth / 10) * 10;
+  layout.yPos += maxH;
 
   float factor = constrain(
-      (gauge.current - gauge.min) / (gauge.max - gauge.min), 0.f, 1.f);
+      (data.currentValue - config.min) / (config.max - config.min), 0.f, 1.f);
   int16_t currentW = factor * w;
 
-  canvas.fillRect(x0, y0, w + 1, 2, color);
-  canvas.fillRect(x0, y0, currentW, -tallNotchH, color);
+  canvas.fillRect(layout.xPos, layout.yPos, w, -lineH, theme.okColor);
+  canvas.fillRect(layout.xPos, layout.yPos, currentW, -tallNotchH,
+                  theme.okColor);
 
   auto drawNotch = [&](int16_t x, bool tall) {
-    canvas.drawFastVLine(x, y0, tall ? -tallNotchH : -smallNotchH, color);
+    canvas.drawFastVLine(x, layout.yPos, tall ? -tallNotchH : -smallNotchH,
+                         theme.okColor);
   };
 
-  for (int16_t x = x0; x <= x0 + w; x += w / 10) {
-    drawNotch(x, (x - x0) % 5 == 0);
+  for (int16_t x = layout.xPos; x <= layout.xPos + w; x += w / 10) {
+    drawNotch(x, (x - layout.xPos) % 5 == 0);
   }
+
+  layout.yPos += layout.margin;
 }

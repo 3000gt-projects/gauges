@@ -36,17 +36,6 @@ const uint8_t OLED_pin_res2_rst = 27;
 // connect a push button to ...
 const uint8_t Button_pin = 2;
 
-// SSD1331 color definitions
-const uint16_t OLED_Color_Black = 0x0000;
-const uint16_t OLED_Color_Blue = 0x001F;
-const uint16_t OLED_Color_Red = 0xF800;
-const uint16_t OLED_Color_Green = 0x07E0;
-const uint16_t OLED_Color_Cyan = 0x07FF;
-const uint16_t OLED_Color_Magenta = 0xF81F;
-const uint16_t OLED_Color_Yellow = 0xFFE0;
-const uint16_t OLED_Color_Warm = 0xFC00;
-const uint16_t OLED_Color_White = 0xFFFF;
-
 // The colors we actually want to use
 uint16_t OLED_Text_Color = OLED_Color_Red;
 uint16_t OLED_Backround_Color = OLED_Color_Black;
@@ -81,82 +70,118 @@ void setup() {
   oled2.enableDisplay(true);
 }
 
+GaugeTheme theme;
+
+namespace gauges {
+
+GaugeConfig coolant{
+    .name = "COOLANT",
+    .units = "C",
+    .min = 0,
+    .max = 130,
+};
+
+GaugeConfig oilTemp{
+    .name = "OIL",
+    .units = "C",
+    .min = 0,
+    .max = 150,
+};
+
+GaugeConfig iat{
+    .name = "IAT",
+    .units = "C",
+    .min = 0,
+    .max = 100,
+};
+
+GaugeConfig egt{
+    .name = "EGT",
+    .units = "C",
+    .min = 0,
+    .max = 1300,
+};
+
+GaugeConfig oilPress{
+    .name = "OIL",
+    .units = "bar",
+    .min = 0,
+    .max = 10,
+};
+
+GaugeConfig boost{
+    .name = "BOOST",
+    .units = "bar",
+    .min = -1,
+    .max = 2,
+};
+
+GaugeConfig fuelPress{
+    .name = "FUEL",
+    .units = "bar",
+    .min = 0,
+    .max = 10,
+};
+
+} // namespace gauges
+
 void loop() {
   auto factor = float(analogRead(26)) / 1024;
 
+  GaugeVerticalLayout layout{
+      .xPos = 0,
+      .yPos = 0,
+      .margin = 8,
+      .maxWidth = SCREEN_WIDTH,
+  };
+
   canvas1.fillScreen(OLED_Backround_Color);
   {
-    Gauge gauge;
-    gauge.name = "COOLANT";
-    gauge.units = "C";
-    gauge.min = 0;
-    gauge.max = 130;
-    gauge.current = 90 * factor;
-    drawGauge(canvas1, gauge, 0, 0, 128, OLED_Color_Warm);
+    GaugeData data;
+    data.currentValue = 90 * factor;
+    drawGauge(canvas1, gauges::coolant, layout, theme, data);
   }
 
   {
-    Gauge gauge;
-    gauge.name = "OIL";
-    gauge.units = "C";
-    gauge.min = 0;
-    gauge.max = 150;
-    gauge.current = 90 * factor;
-    drawGauge(canvas1, gauge, 0, 25, 128, OLED_Color_Warm);
+    GaugeData data;
+    data.currentValue = 90 * factor;
+    drawGauge(canvas1, gauges::oilTemp, layout, theme, data);
   }
 
   {
-    Gauge gauge;
-    gauge.name = "IAT";
-    gauge.units = "C";
-    gauge.min = 0;
-    gauge.max = 100;
-    gauge.current = 55 * factor;
-    drawGauge(canvas1, gauge, 0, 50, 128, OLED_Color_Warm);
+    GaugeData data;
+    data.currentValue = 55 * factor;
+    drawGauge(canvas1, gauges::iat, layout, theme, data);
   }
 
   {
-    Gauge gauge;
-    gauge.name = "EGT";
-    gauge.units = "C";
-    gauge.min = 0;
-    gauge.max = 1300;
-    gauge.current = 900 * factor;
-    drawGauge(canvas1, gauge, 0, 75, 128, OLED_Color_Warm);
+    GaugeData data;
+    data.currentValue = 900 * factor;
+    drawGauge(canvas1, gauges::egt, layout, theme, data);
   }
 
   oled.drawRGBBitmap(0, 0, canvas1.getBuffer(), canvas1.width(),
                      canvas1.height());
 
   canvas1.fillScreen(OLED_Backround_Color);
+  resetLayout(layout, 0);
+
   {
-    Gauge gauge;
-    gauge.name = "OIL";
-    gauge.units = "bar";
-    gauge.min = 0;
-    gauge.max = 10;
-    gauge.current = 9 * factor;
-    drawGauge(canvas1, gauge, 0, 0, 128, OLED_Color_Warm);
+    GaugeData data;
+    data.currentValue = 9 * factor;
+    drawGauge(canvas1, gauges::oilPress, layout, theme, data);
   }
 
   {
-    Gauge gauge;
-    gauge.name = "BOOST";
-    gauge.units = "bar";
-    gauge.min = -1;
-    gauge.max = 2;
-    gauge.current = 2.1 * factor - 1;
-    drawGauge(canvas1, gauge, 0, 25, 128, OLED_Color_Warm);
+    GaugeData data;
+    data.currentValue = 2.1 * factor - 1;
+    drawGauge(canvas1, gauges::boost, layout, theme, data);
   }
 
   {
-    Gauge gauge;
-    gauge.name = "FUEL";
-    gauge.units = "bar";
-    gauge.min = 0;
-    gauge.max = 10;
-    gauge.current = 9 * factor;
-    drawGauge(canvas1, gauge, 0, 50, 128, OLED_Color_Warm);
+    GaugeData data;
+    data.currentValue = 9 * factor;
+    drawGauge(canvas1, gauges::fuelPress, layout, theme, data);
   }
 
   oled2.drawRGBBitmap(0, 0, canvas1.getBuffer(), canvas1.width(),
