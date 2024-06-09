@@ -14,6 +14,8 @@ struct GaugeConfig {
   const char *units = "undefined";
   float min = 0;
   float max = 100;
+  float lowValue = 10;
+  float highValue = 90;
 };
 
 struct GaugeData {
@@ -39,6 +41,8 @@ void drawGauge(GFXcanvas16 &canvas, const struct GaugeConfig &config,
   const int16_t textH = 6;
   const int16_t textBottomMargin = 2;
   const int16_t lineH = 2;
+  const int16_t indicatorW = tallNotchH;
+  const int16_t indicatorLeftMargin = 3;
 
   const int16_t maxH = tallNotchH + textH + textBottomMargin;
 
@@ -51,7 +55,8 @@ void drawGauge(GFXcanvas16 &canvas, const struct GaugeConfig &config,
   canvas.print(' ');
   canvas.print(config.units);
 
-  int16_t w = (layout.maxWidth / 10) * 10;
+  int16_t w =
+      ((layout.maxWidth - (indicatorLeftMargin + indicatorW)) / 10) * 10;
   layout.yPos += maxH;
 
   float factor = constrain(
@@ -61,6 +66,16 @@ void drawGauge(GFXcanvas16 &canvas, const struct GaugeConfig &config,
   canvas.fillRect(layout.xPos, layout.yPos, w, -lineH, theme.okColor);
   canvas.fillRect(layout.xPos, layout.yPos, currentW, -tallNotchH,
                   theme.okColor);
+  {
+    int16_t indicatorColor = theme.okColor;
+    if (data.currentValue < config.lowValue) {
+      indicatorColor = theme.lowColor;
+    } else if (data.currentValue > config.highValue) {
+      indicatorColor = theme.highColor;
+    }
+    canvas.fillRect(layout.xPos + w + indicatorLeftMargin, layout.yPos,
+                    indicatorW, -tallNotchH, indicatorColor);
+  }
 
   auto drawNotch = [&](int16_t x, bool tall) {
     canvas.drawFastVLine(x, layout.yPos, tall ? -tallNotchH : -smallNotchH,

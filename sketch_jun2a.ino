@@ -79,6 +79,8 @@ GaugeConfig coolant{
     .units = "C",
     .min = 0,
     .max = 130,
+    .lowValue = 60,
+    .highValue = 100,
 };
 
 GaugeConfig oilTemp{
@@ -86,6 +88,8 @@ GaugeConfig oilTemp{
     .units = "C",
     .min = 0,
     .max = 150,
+    .lowValue = 60,
+    .highValue = 120,
 };
 
 GaugeConfig iat{
@@ -93,6 +97,8 @@ GaugeConfig iat{
     .units = "C",
     .min = 0,
     .max = 100,
+    .lowValue = 0,
+    .highValue = 65,
 };
 
 GaugeConfig egt{
@@ -100,6 +106,8 @@ GaugeConfig egt{
     .units = "C",
     .min = 0,
     .max = 1300,
+    .lowValue = 0,
+    .highValue = 900,
 };
 
 GaugeConfig oilPress{
@@ -107,6 +115,8 @@ GaugeConfig oilPress{
     .units = "bar",
     .min = 0,
     .max = 10,
+    .lowValue = 1,
+    .highValue = 8,
 };
 
 GaugeConfig boost{
@@ -114,6 +124,8 @@ GaugeConfig boost{
     .units = "bar",
     .min = -1,
     .max = 2,
+    .lowValue = -1,
+    .highValue = 1.5,
 };
 
 GaugeConfig fuelPress{
@@ -121,6 +133,8 @@ GaugeConfig fuelPress{
     .units = "bar",
     .min = 0,
     .max = 10,
+    .lowValue = 2,
+    .highValue = 5,
 };
 
 } // namespace gauges
@@ -138,25 +152,25 @@ void loop() {
   canvas1.fillScreen(OLED_Backround_Color);
   {
     GaugeData data;
-    data.currentValue = 90 * factor;
+    data.currentValue = 110 * factor;
     drawGauge(canvas1, gauges::coolant, layout, theme, data);
   }
 
   {
     GaugeData data;
-    data.currentValue = 90 * factor;
+    data.currentValue = 130 * factor;
     drawGauge(canvas1, gauges::oilTemp, layout, theme, data);
   }
 
   {
     GaugeData data;
-    data.currentValue = 55 * factor;
+    data.currentValue = 75 * factor;
     drawGauge(canvas1, gauges::iat, layout, theme, data);
   }
 
   {
     GaugeData data;
-    data.currentValue = 900 * factor;
+    data.currentValue = 1000 * factor;
     drawGauge(canvas1, gauges::egt, layout, theme, data);
   }
 
@@ -174,7 +188,7 @@ void loop() {
 
   {
     GaugeData data;
-    data.currentValue = 2.1 * factor - 1;
+    data.currentValue = 3 * factor - 1;
     drawGauge(canvas1, gauges::boost, layout, theme, data);
   }
 
