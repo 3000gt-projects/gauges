@@ -1,5 +1,6 @@
 #include <Adafruit_GFX.h>
-#include <cstdint>
+#include <cmath>
+#include <float.h>
 
 #include "colors.h"
 
@@ -18,8 +19,25 @@ struct GaugeConfig {
   float highValue = 90;
 };
 
+float lesserValue(float value) {
+  auto intValue = *(int32_t *)&value;
+  --intValue;
+  return *(float *)(&intValue);
+}
+
 struct GaugeData {
+  inline static const float offlineValue = FLT_MAX;
+  inline static const float badDataValue = lesserValue(offlineValue);
+
   float currentValue;
+};
+
+static const GaugeData offlineGaugeData{
+    .currentValue = GaugeData::offlineValue,
+};
+
+static const GaugeData badGaugeData{
+    .currentValue = GaugeData::badDataValue,
 };
 
 struct GaugeVerticalLayout {
@@ -51,9 +69,15 @@ void drawGauge(GFXcanvas16 &canvas, const struct GaugeConfig &config,
   canvas.setCursor(layout.xPos, layout.yPos);
   canvas.print(config.name);
   canvas.print(' ');
-  canvas.print(data.currentValue);
-  canvas.print(' ');
-  canvas.print(config.units);
+  if (data.currentValue == GaugeData::offlineValue) {
+    canvas.print("OFFLINE");
+  } else if (data.currentValue == GaugeData::badDataValue) {
+    canvas.print("BAD DATA");
+  } else {
+    canvas.print(data.currentValue);
+    canvas.print(' ');
+    canvas.print(config.units);
+  }
 
   int16_t w =
       ((layout.maxWidth - (indicatorLeftMargin + indicatorW)) / 10) * 10;

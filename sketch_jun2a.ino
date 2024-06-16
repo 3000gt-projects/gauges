@@ -1,23 +1,14 @@
-/*
- * This is an example sketch that shows how to toggle the SSD1331 OLED display
- * on and off at runtime to avoid screen burn-in.
- *
- * The sketch also demonstrates how to erase a previous value by re-drawing the
- * older value in the screen background color prior to writing a new value in
- * the same location. This avoids the need to call fillScreen() to erase the
- * entire screen followed by a complete redraw of screen contents.
- *
- * Written by Phill Kelley. BSD license.
- */
-
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1351.h>
 #include <Arduino.h>
+#include <Array.h>
 #include <SPI.h>
+#include <cstdint>
 
 #include "gauge.h"
 
 #define SerialDebugging true
+#define Mock true
 
 // Screen dimensions
 #define SCREEN_WIDTH 128
@@ -40,107 +31,37 @@ const uint8_t Button_pin = 2;
 uint16_t OLED_Text_Color = OLED_Color_Red;
 uint16_t OLED_Backround_Color = OLED_Color_Black;
 
-GFXcanvas16 canvas1(SCREEN_WIDTH, SCREEN_HEIGHT);
+GFXcanvas16 canvas(SCREEN_WIDTH, SCREEN_HEIGHT);
 
 // declare the display
-Adafruit_SSD1351 oled =
+Adafruit_SSD1351 oled1 =
     Adafruit_SSD1351(SCREEN_WIDTH, SCREEN_HEIGHT, &SPI, OLED_pin_cs_ss,
                      OLED_pin_dc_rs, OLED_pin_res_rst);
 
 Adafruit_SSD1351 oled2 = Adafruit_SSD1351(SCREEN_WIDTH, SCREEN_HEIGHT, &SPI,
                                           OLED_pin_cs2_ss, OLED_pin_dc2_rs);
 
-void setup() {
-#if (SerialDebugging)
-  Serial.begin(115200);
-#endif
+struct Configuration {
+  using Display = Array<GaugeConfig, 10>;
 
-  // settling time
-  delay(250);
+  GaugeTheme theme;
+  Display display1Gauges;
+  Display display2Gauges;
+  Display display3Gauges;
+} configuration;
 
-  canvas1.setFont();
-  canvas1.fillScreen(OLED_Backround_Color);
-  canvas1.setTextColor(OLED_Text_Color);
+struct Data {
+  using Display = Array<GaugeData, 10>;
 
-  // initialise the SSD1331
-  oled.begin();
-  oled2.begin();
-
-  oled.enableDisplay(true);
-  oled2.enableDisplay(true);
-}
-
-GaugeTheme theme;
-
-namespace gauges {
-
-GaugeConfig coolant{
-    .name = "COOLANT",
-    .units = "C",
-    .min = 0,
-    .max = 130,
-    .lowValue = 60,
-    .highValue = 100,
+  Display display1Gauges;
+  Display display2Gauges;
+  Display display3Gauges;
 };
 
-GaugeConfig oilTemp{
-    .name = "OIL",
-    .units = "C",
-    .min = 0,
-    .max = 150,
-    .lowValue = 60,
-    .highValue = 120,
-};
-
-GaugeConfig iat{
-    .name = "IAT",
-    .units = "C",
-    .min = 0,
-    .max = 100,
-    .lowValue = 0,
-    .highValue = 65,
-};
-
-GaugeConfig egt{
-    .name = "EGT",
-    .units = "C",
-    .min = 0,
-    .max = 1300,
-    .lowValue = 0,
-    .highValue = 900,
-};
-
-GaugeConfig oilPress{
-    .name = "OIL",
-    .units = "bar",
-    .min = 0,
-    .max = 10,
-    .lowValue = 1,
-    .highValue = 8,
-};
-
-GaugeConfig boost{
-    .name = "BOOST",
-    .units = "bar",
-    .min = -1,
-    .max = 2,
-    .lowValue = -1,
-    .highValue = 1.5,
-};
-
-GaugeConfig fuelPress{
-    .name = "FUEL",
-    .units = "bar",
-    .min = 0,
-    .max = 10,
-    .lowValue = 2,
-    .highValue = 5,
-};
-
-} // namespace gauges
-
-void loop() {
-  auto factor = float(analogRead(26)) / 1024;
+void drawDisplay(Adafruit_SSD1351 &display,
+                 const Configuration::Display &displayConfiguration,
+                 const Data::Display &displayData) {
+  canvas.fillScreen(OLED_Backround_Color);
 
   GaugeVerticalLayout layout{
       .xPos = 0,
@@ -149,58 +70,136 @@ void loop() {
       .maxWidth = SCREEN_WIDTH,
   };
 
-  canvas1.fillScreen(OLED_Backround_Color);
-  {
-    GaugeData data;
-    data.currentValue = 110 * factor;
-    drawGauge(canvas1, gauges::coolant, layout, theme, data);
+  if (displayConfiguration.size() == displayData.size()) {
+    for (size_t gaugeIndex = 0; gaugeIndex < displayConfiguration.size();
+         ++gaugeIndex) {
+      drawGauge(canvas, displayConfiguration[gaugeIndex], layout,
+                configuration.theme, displayData[gaugeIndex]);
+    }
+  } else {
+    for (auto &gaugeConfiguration : displayConfiguration) {
+      drawGauge(canvas, gaugeConfiguration, layout, configuration.theme,
+                badGaugeData);
+    }
   }
 
-  {
-    GaugeData data;
-    data.currentValue = 130 * factor;
-    drawGauge(canvas1, gauges::oilTemp, layout, theme, data);
-  }
+  display.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(),
+                        canvas.height());
+}
 
-  {
-    GaugeData data;
-    data.currentValue = 75 * factor;
-    drawGauge(canvas1, gauges::iat, layout, theme, data);
-  }
+void setup() {
+#if (SerialDebugging)
+  Serial.begin(115200);
+#endif
 
-  {
-    GaugeData data;
-    data.currentValue = 1000 * factor;
-    drawGauge(canvas1, gauges::egt, layout, theme, data);
-  }
+#if (Mock)
+  configuration.display1Gauges.push_back(GaugeConfig{
+      .name = "COOLANT",
+      .units = "C",
+      .min = 0,
+      .max = 130,
+      .lowValue = 60,
+      .highValue = 100,
+  });
 
-  oled.drawRGBBitmap(0, 0, canvas1.getBuffer(), canvas1.width(),
-                     canvas1.height());
+  configuration.display1Gauges.push_back(GaugeConfig{
+      .name = "OIL",
+      .units = "C",
+      .min = 0,
+      .max = 150,
+      .lowValue = 60,
+      .highValue = 120,
+  });
 
-  canvas1.fillScreen(OLED_Backround_Color);
-  resetLayout(layout, 0);
+  configuration.display1Gauges.push_back(GaugeConfig{
+      .name = "IAT",
+      .units = "C",
+      .min = 0,
+      .max = 100,
+      .lowValue = 0,
+      .highValue = 65,
+  });
 
-  {
-    GaugeData data;
-    data.currentValue = 9 * factor;
-    drawGauge(canvas1, gauges::oilPress, layout, theme, data);
-  }
+  configuration.display1Gauges.push_back(GaugeConfig{
+      .name = "EGT",
+      .units = "C",
+      .min = 0,
+      .max = 1300,
+      .lowValue = 0,
+      .highValue = 900,
+  });
 
-  {
-    GaugeData data;
-    data.currentValue = 3 * factor - 1;
-    drawGauge(canvas1, gauges::boost, layout, theme, data);
-  }
+  configuration.display2Gauges.push_back(GaugeConfig{
+      .name = "OIL",
+      .units = "bar",
+      .min = 0,
+      .max = 10,
+      .lowValue = 1,
+      .highValue = 8,
+  });
 
-  {
-    GaugeData data;
-    data.currentValue = 9 * factor;
-    drawGauge(canvas1, gauges::fuelPress, layout, theme, data);
-  }
+  configuration.display2Gauges.push_back(GaugeConfig{
+      .name = "BOOST",
+      .units = "bar",
+      .min = -1,
+      .max = 2,
+      .lowValue = -1,
+      .highValue = 1.5,
+  });
 
-  oled2.drawRGBBitmap(0, 0, canvas1.getBuffer(), canvas1.width(),
-                      canvas1.height());
+  configuration.display2Gauges.push_back(GaugeConfig{
+      .name = "FUEL",
+      .units = "bar",
+      .min = 0,
+      .max = 10,
+      .lowValue = 2,
+      .highValue = 5,
+  });
+#endif
 
-  // no need to be in too much of a hurry
-  delay(16);
+  // settling time
+  delay(250);
+
+  canvas.setFont();
+  canvas.fillScreen(OLED_Backround_Color);
+  canvas.setTextColor(OLED_Text_Color);
+
+  // initialise the SSD1331
+  oled1.begin();
+  oled2.begin();
+
+  oled1.enableDisplay(true);
+  oled2.enableDisplay(true);
+}
+
+void loop() {
+#if Mock
+  auto factor = float(analogRead(26)) / 1024;
+
+  Data data;
+
+  // COOLANT
+  data.display1Gauges.push_back(GaugeData{.currentValue = 110 * factor});
+  // OIL TEMP
+  data.display1Gauges.push_back(GaugeData{.currentValue = 130 * factor});
+  // IAT
+  data.display1Gauges.push_back(GaugeData{.currentValue = 75 * factor});
+  // EGT
+  data.display1Gauges.push_back(GaugeData{.currentValue = 1000 * factor});
+
+  // OIL press
+  data.display2Gauges.push_back(GaugeData{.currentValue = 9 * factor});
+  // BOOST
+  data.display2Gauges.push_back(GaugeData{.currentValue = 3 * factor});
+  // FUEL PRESS
+  data.display2Gauges.push_back(GaugeData{.currentValue = 9 * factor});
+
+#endif
+
+  drawDisplay(oled1, configuration.display1Gauges, data.display1Gauges);
+  drawDisplay(oled2, configuration.display2Gauges, data.display2Gauges);
+  // drawDisplay(oled3, configuration.display3Gauges, data.display3Gauges);
+
+  // rough 60 FPS target
+  delay(10);
 }
