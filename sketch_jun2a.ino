@@ -5,7 +5,6 @@
 #include <SPI.h>
 #include <cstdint>
 
-#include "CustomFonts/Roboto_Bold_12.h"
 #include "gauge.h"
 
 #define SerialDebugging true
