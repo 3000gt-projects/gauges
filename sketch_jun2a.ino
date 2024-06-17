@@ -5,6 +5,7 @@
 #include <SPI.h>
 #include <cstdint>
 
+#include "CustomFonts/Roboto_Bold_12.h"
 #include "gauge.h"
 
 #define SerialDebugging true
@@ -159,10 +160,6 @@ void setup() {
 
   // settling time
   delay(250);
-
-  canvas.setFont();
-  canvas.fillScreen(OLED_Backround_Color);
-  canvas.setTextColor(OLED_Text_Color);
 
   // initialise the SSD1331
   oled1.begin();
