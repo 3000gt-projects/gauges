@@ -96,6 +96,7 @@ void setup() {
   configuration.display1Gauges.push_back(GaugeConfig{
       .name = "COOLANT",
       .units = "C",
+      .format = "%.0f",
       .min = 0,
       .max = 130,
       .lowValue = 60,
@@ -105,6 +106,7 @@ void setup() {
   configuration.display1Gauges.push_back(GaugeConfig{
       .name = "OIL",
       .units = "C",
+      .format = "%.0f",
       .min = 0,
       .max = 150,
       .lowValue = 60,
@@ -114,6 +116,7 @@ void setup() {
   configuration.display1Gauges.push_back(GaugeConfig{
       .name = "IAT",
       .units = "C",
+      .format = "%.0f",
       .min = 0,
       .max = 100,
       .lowValue = 0,
@@ -123,6 +126,7 @@ void setup() {
   configuration.display1Gauges.push_back(GaugeConfig{
       .name = "EGT",
       .units = "C",
+      .format = "%.0f",
       .min = 0,
       .max = 1300,
       .lowValue = 0,
@@ -132,6 +136,7 @@ void setup() {
   configuration.display2Gauges.push_back(GaugeConfig{
       .name = "OIL",
       .units = "bar",
+      .format = "%.2f",
       .min = 0,
       .max = 10,
       .lowValue = 1,
@@ -141,6 +146,7 @@ void setup() {
   configuration.display2Gauges.push_back(GaugeConfig{
       .name = "BOOST",
       .units = "bar",
+      .format = "%.2f",
       .min = -1,
       .max = 2,
       .lowValue = -1,
@@ -150,6 +156,7 @@ void setup() {
   configuration.display2Gauges.push_back(GaugeConfig{
       .name = "FUEL",
       .units = "bar",
+      .format = "%.2f",
       .min = 0,
       .max = 10,
       .lowValue = 2,
@@ -186,7 +193,7 @@ void loop() {
   // OIL press
   data.display2Gauges.push_back(GaugeData{.currentValue = 9 * factor});
   // BOOST
-  data.display2Gauges.push_back(GaugeData{.currentValue = 3 * factor});
+  data.display2Gauges.push_back(GaugeData{.currentValue = 3 * factor - 1.f});
   // FUEL PRESS
   data.display2Gauges.push_back(GaugeData{.currentValue = 9 * factor});
 

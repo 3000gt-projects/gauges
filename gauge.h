@@ -1,9 +1,12 @@
 #include <Adafruit_GFX.h>
+#include <Arduino.h>
+
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <float.h>
-#include <math.h>
 
 #include "CustomFonts/DSEG7_Modern_Bold_12.h"
 #include "colors.h"
@@ -18,6 +21,7 @@ struct GaugeTheme {
 struct GaugeConfig {
   const char *name = "???";
   const char *units = "???";
+  const char *format = "%.2f";
   float min = 0;
   float max = 100;
   float lowValue = 10;
@@ -56,8 +60,28 @@ void resetLayout(struct GaugeVerticalLayout &layout, int16_t yPos) {
   layout.yPos = yPos;
 }
 
-int16_t valueStringSize(float value) {
-  return log10f(value) + 4 /*+1 for log10 +1 for dot and +2 for precision*/;
+template <size_t N>
+int16_t valueToString(float value, const char *format, char (&out)[N]) {
+  return snprintf(out, N, format, value);
+}
+
+template <size_t N>
+int16_t stringWidth(const char (&str)[N], int16_t glyphWidth,
+                    int16_t dotWidth) {
+  int16_t result = 0;
+
+  for (char c : str) {
+    if (c == '\0')
+      return result;
+    if (c == '.') {
+      result += dotWidth;
+      continue;
+    }
+
+    result += glyphWidth;
+  }
+
+  return result;
 }
 
 void drawGauge(GFXcanvas16 &canvas, const struct GaugeConfig &config,
@@ -75,8 +99,9 @@ void drawGauge(GFXcanvas16 &canvas, const struct GaugeConfig &config,
   static const int16_t tallNotchH = 8;
   static const int16_t smallNotchH = 6;
   static const int16_t textH = 12;
-  static const int16_t textW = 4;
+  static const int16_t textW = 6;
   static const int16_t valueTextW = 11;
+  static const int16_t valueTextDotW = 1;
   static const int16_t textBottomMargin = 2;
   static const int16_t lineH = 2;
   static const int16_t indicatorW = 0;
@@ -127,21 +152,25 @@ void drawGauge(GFXcanvas16 &canvas, const struct GaugeConfig &config,
   } else if (data.currentValue == GaugeData::badDataValue) {
     canvas.print("BAD DATA");
   } else {
-    {
+    char valueString[10];
+    if (valueToString(data.currentValue, config.format, valueString) < 1) {
+      canvas.print("ERROR");
+    } else {
       canvas.setFont(&DSEG7_Modern_Bold_12);
       // right alignment
       int16_t textXPos =
           canvas.width() -
-          (valueTextW * valueStringSize(data.currentValue) +
+          (stringWidth(valueString, valueTextW, valueTextDotW) +
            (strlen(config.units) + 1 /*+ 1 for space before units*/) * textW);
       // custom fonts seem to have coordinate origin at the bottom of the glyphs
       canvas.setCursor(textXPos, layout.yPos + textH);
-      canvas.print(data.currentValue);
+      canvas.print(valueString);
       canvas.setFont();
       canvas.setCursor(canvas.getCursorX(), layout.yPos);
+
+      canvas.print(' ');
+      canvas.print(config.units);
     }
-    canvas.print(' ');
-    canvas.print(config.units);
   }
 
   int16_t w =
