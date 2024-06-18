@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stdint.h>
 
 // SSD1331 color definitions

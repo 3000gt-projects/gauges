@@ -1,14 +1,15 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1351.h>
 #include <Arduino.h>
-#include <Array.h>
 #include <SPI.h>
 #include <cstdint>
 
-#include "gauge.h"
+#define EnableDebugging false
+#define Mock false
 
-#define SerialDebugging true
-#define Mock true
+#include "communication.h"
+#include "gauge.h"
+#include "mock.h"
 
 // Screen dimensions
 #define SCREEN_WIDTH 128
@@ -41,22 +42,14 @@ Adafruit_SSD1351 oled1 =
 Adafruit_SSD1351 oled2 = Adafruit_SSD1351(SCREEN_WIDTH, SCREEN_HEIGHT, &SPI,
                                           OLED_pin_cs2_ss, OLED_pin_dc2_rs);
 
-struct Configuration {
-  using Display = Array<GaugeConfig, 10>;
+ArduinoJson::JsonDocument configurationMessageDocument;
+Configuration configuration;
 
-  GaugeTheme theme;
-  Display display1Gauges;
-  Display display2Gauges;
-  Display display3Gauges;
-} configuration;
-
-struct Data {
-  using Display = Array<GaugeData, 10>;
-
-  Display display1Gauges;
-  Display display2Gauges;
-  Display display3Gauges;
-};
+bool configurationIsEmpty() {
+  return configuration.display1.gauges.empty() &&
+         configuration.display2.gauges.empty() &&
+         configuration.display3.gauges.empty();
+}
 
 void drawDisplay(Adafruit_SSD1351 &display,
                  const Configuration::Display &displayConfiguration,
@@ -70,98 +63,30 @@ void drawDisplay(Adafruit_SSD1351 &display,
       .maxWidth = SCREEN_WIDTH,
   };
 
-  if (displayConfiguration.size() == displayData.size()) {
-    for (size_t gaugeIndex = 0; gaugeIndex < displayConfiguration.size();
+  if (displayConfiguration.gauges.size() == displayData.gauges.size()) {
+    for (size_t gaugeIndex = 0; gaugeIndex < displayConfiguration.gauges.size();
          ++gaugeIndex) {
-      drawGauge(canvas, displayConfiguration[gaugeIndex], layout,
-                configuration.theme, displayData[gaugeIndex]);
+      drawGauge(canvas, displayConfiguration.gauges[gaugeIndex], layout,
+                configuration.theme, displayData.gauges[gaugeIndex]);
     }
   } else {
-    for (auto &gaugeConfiguration : displayConfiguration) {
+    for (auto &gaugeConfiguration : displayConfiguration.gauges) {
       drawGauge(canvas, gaugeConfiguration, layout, configuration.theme,
                 badGaugeData);
     }
   }
 
+  debug("Draw display");
   display.drawRGBBitmap(0, 0, canvas.getBuffer(), canvas.width(),
                         canvas.height());
 }
 
 void setup() {
-#if (SerialDebugging)
   Serial.begin(115200);
-#endif
+  Serial.setTimeout(500);
 
 #if (Mock)
-  configuration.display1Gauges.push_back(GaugeConfig{
-      .name = "COOLANT",
-      .units = "C",
-      .format = "%.0f",
-      .min = 0,
-      .max = 130,
-      .lowValue = 60,
-      .highValue = 100,
-  });
-
-  configuration.display1Gauges.push_back(GaugeConfig{
-      .name = "OIL",
-      .units = "C",
-      .format = "%.0f",
-      .min = 0,
-      .max = 150,
-      .lowValue = 60,
-      .highValue = 120,
-  });
-
-  configuration.display1Gauges.push_back(GaugeConfig{
-      .name = "IAT",
-      .units = "C",
-      .format = "%.0f",
-      .min = 0,
-      .max = 100,
-      .lowValue = 0,
-      .highValue = 65,
-  });
-
-  configuration.display1Gauges.push_back(GaugeConfig{
-      .name = "EGT",
-      .units = "C",
-      .format = "%.0f",
-      .min = 0,
-      .max = 1300,
-      .lowValue = 0,
-      .highValue = 900,
-  });
-
-  configuration.display2Gauges.push_back(GaugeConfig{
-      .name = "OIL",
-      .units = "bar",
-      .format = "%.2f",
-      .min = 0,
-      .max = 10,
-      .lowValue = 1,
-      .highValue = 8,
-  });
-
-  configuration.display2Gauges.push_back(GaugeConfig{
-      .name = "BOOST",
-      .units = "bar",
-      .format = "%.2f",
-      .min = -1,
-      .max = 2,
-      .lowValue = -1,
-      .highValue = 1.5,
-  });
-
-  configuration.display2Gauges.push_back(GaugeConfig{
-      .name = "FUEL",
-      .units = "bar",
-      .format = "%.2f",
-      .min = 0,
-      .max = 10,
-      .lowValue = 2,
-      .highValue = 5,
-  });
+  configuration = mockConfiguration();
 #endif
 
   // settling time
@@ -177,32 +102,94 @@ void setup() {
 
 void loop() {
 #if Mock
-  auto factor = float(analogRead(26)) / 1024;
+  // rough 60 FPS target
+  delay(10);
+  auto data = mockData();
+#else
 
-  Data data;
+  ArduinoJson::JsonDocument messageDocument;
 
-  // COOLANT
-  data.display1Gauges.push_back(GaugeData{.currentValue = 110 * factor});
-  // OIL TEMP
-  data.display1Gauges.push_back(GaugeData{.currentValue = 130 * factor});
-  // IAT
-  data.display1Gauges.push_back(GaugeData{.currentValue = 75 * factor});
-  // EGT
-  data.display1Gauges.push_back(GaugeData{.currentValue = 1000 * factor});
+  if (configurationIsEmpty()) {
+    messageDocument["type"] = (uint8_t)OutMessageType::NeedGaugeConfig;
 
-  // OIL press
-  data.display2Gauges.push_back(GaugeData{.currentValue = 9 * factor});
-  // BOOST
-  data.display2Gauges.push_back(GaugeData{.currentValue = 3 * factor - 1.f});
-  // FUEL PRESS
-  data.display2Gauges.push_back(GaugeData{.currentValue = 9 * factor});
+    debug("Sending config request");
+
+    String messageString;
+    ArduinoJson::serializeJson(messageDocument, messageString);
+    debug(messageString);
+
+    debug("Sent config request");
+
+    messageDocument.clear();
+
+    ArduinoJson::deserializeJson(messageDocument, Serial.readStringUntil('\n'));
+
+    auto messageObject = messageDocument.as<ArduinoJson::JsonObject>();
+
+    if (getMessageType(messageObject) == InMessageType::Configuration) {
+      configurationMessageDocument = std::move(messageDocument);
+      messageDocument.clear();
+
+      configuration = parseConfiguration(configurationMessageDocument["message"]
+                                             .as<ArduinoJson::JsonObject>());
+
+      Serial.print("Gauges: ");
+      Serial.println(configuration.display1.gauges.size());
+    }
+    return;
+  }
+
+  messageDocument["type"] = (uint8_t)OutMessageType::NeedGaugeData;
+
+  ArduinoJson::serializeJson(messageDocument, Serial);
+  Serial.print("\n");
+
+  messageDocument.clear();
+
+  debug("Reading");
+
+  auto json_string = Serial.readStringUntil('\n');
+  Serial.print("\n");
+
+  debug("Got String: " + json_string);
+
+  ArduinoJson::deserializeJson(messageDocument, json_string);
+
+  debug("Deserialized");
+
+  auto messageObject = messageDocument.as<ArduinoJson::JsonObject>();
+
+  debug("Got object");
+
+  // reconfigure
+  if (getMessageType(messageObject) == InMessageType::Configuration) {
+    debug("Reconfigure");
+
+    configurationMessageDocument = std::move(messageDocument);
+    messageDocument.clear();
+
+    configuration = parseConfiguration(
+        configurationMessageDocument["message"].as<ArduinoJson::JsonObject>());
+    debug("Parsed configuration");
+
+    debug("Gauges: " + configuration.display1.gauges.size());
+    return;
+  }
+
+  if (getMessageType(messageObject) != InMessageType::Data) {
+    return;
+  }
+
+  debug("Got Data");
+
+  auto data = parseData(messageObject["message"].as<ArduinoJson::JsonObject>());
+
+  debug("Parsed Data");
+  debug("Gauges: " + data.display1.gauges.size());
 
 #endif
 
-  drawDisplay(oled1, configuration.display1Gauges, data.display1Gauges);
-  drawDisplay(oled2, configuration.display2Gauges, data.display2Gauges);
-  // drawDisplay(oled3, configuration.display3Gauges, data.display3Gauges);
-
-  // rough 60 FPS target
-  delay(10);
+  drawDisplay(oled1, configuration.display1, data.display1);
+  drawDisplay(oled2, configuration.display2, data.display2);
+  // drawDisplay(oled3, configuration.display3, data.display3);
 }

@@ -6,40 +6,11 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <float.h>
 
 #include "CustomFonts/DSEG7_Modern_Bold_12.h"
 #include "colors.h"
-
-struct GaugeTheme {
-  uint16_t okColor = OLED_Color_Warm;
-  uint16_t lowColor = OLED_Color_Blue;
-  uint16_t highColor = OLED_Color_Red;
-  uint16_t alertColor = OLED_Color_Red;
-};
-
-struct GaugeConfig {
-  const char *name = "???";
-  const char *units = "???";
-  const char *format = "%.2f";
-  float min = 0;
-  float max = 100;
-  float lowValue = 10;
-  float highValue = 90;
-};
-
-float lesserValue(float value) {
-  auto intValue = *(int32_t *)&value;
-  --intValue;
-  return *(float *)(&intValue);
-}
-
-struct GaugeData {
-  inline static const float offlineValue = FLT_MAX;
-  inline static const float badDataValue = lesserValue(offlineValue);
-
-  float currentValue;
-};
+#include "debug.h"
+#include "dto.h"
 
 static const GaugeData offlineGaugeData{
     .currentValue = GaugeData::offlineValue,
@@ -87,6 +58,8 @@ int16_t stringWidth(const char (&str)[N], int16_t glyphWidth,
 void drawGauge(GFXcanvas16 &canvas, const struct GaugeConfig &config,
                struct GaugeVerticalLayout &layout,
                const struct GaugeTheme &theme, const struct GaugeData &data) {
+  debug("Draw gauge");
+
   enum Status {
     Alert,
     High,
@@ -131,6 +104,8 @@ void drawGauge(GFXcanvas16 &canvas, const struct GaugeConfig &config,
       color = theme.okColor;
     }
   }
+
+  debug("Color: " + color);
 
   bool show =
       status != Alert && status != High || (millis() / blinkIntervalMs) % 2;
